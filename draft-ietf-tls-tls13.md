@@ -309,6 +309,7 @@ draft-01
 -  Removed support for compression.
 -  Removed support for static RSA key exchange.
 -  Removed support for non-AEAD ciphers
+-  Moved Content Type inside ciphertext for TLSCipherText fragments
 
 ##  Major Differences from TLS 1.1
 
@@ -778,7 +779,7 @@ all possible attacks against it. As a practical matter, this means that the
 protocol designer must be aware of what security properties TLS does and does
 not provide and cannot safely rely on the latter.
 
-Note in particular that type and length of a record are not protected by
+Note in particular that the length of a record is not protected by
 encryption. If this information is itself sensitive, application designers may
 wish to take steps (padding, cover traffic) to minimize information leakage.
 
@@ -822,7 +823,7 @@ record protection algorithm
   be of the AEAD type and thus provides integrity and confidentiality
   as a single primitive. It is possible to have AEAD algorithms which
   do not provide any confidentiality and section
-  {{record-payload-protection}} defines a special NULL_NULL AEAD
+  {{record-payload-protection}} defines a special NULL_NULL record protection
   algorithm for use in the initial handshake). This specification
   includes the key size of this algorithm and the lengths of explicit
   and implicit initialization vectors (or nonces).
@@ -978,17 +979,14 @@ data" to be included in the authentication check, as described in Section 2.1
 of {{RFC5116}}. The key is either the client_write_key or the server_write_key.
 
        struct {
-           ContentType type;
            ProtocolVersion version;
            uint16 length;
            opaque nonce_explicit[SecurityParameters.record_iv_length];
            aead-ciphered struct {
+              ContentType type;
               opaque content[TLSPlaintext.length];
            } fragment;
        } TLSCiphertext;
-
-type
-: The type field is identical to TLSPlaintext.type.
 
 version
 : The version field is identical to TLSPlaintext.version.
@@ -997,8 +995,12 @@ length
 : The length (in bytes) of the following TLSCiphertext.fragment.
   The length MUST NOT exceed 2^14 + 2048.
 
+type
+: The type field is identical to TLSPlaintext.type.
+
 fragment
-: The AEAD encrypted form of TLSPlaintext.fragment.
+: The AEAD encrypted form of TLSPlaintext.type + TLSPlaintext.fragment,
+  where "+" denotes concatenation.
 
 Each AEAD cipher suite MUST specify how the nonce supplied to the AEAD
 operation is constructed, and what is the length of the
@@ -1009,18 +1011,18 @@ this case, the implicit part SHOULD be derived from key_block as
 client_write_iv and server_write_iv (as described in {{key-calculation}}), and
 the explicit part is included in GenericAEAEDCipher.nonce_explicit.
 
-The plaintext is the TLSPlaintext.fragment.
+The plaintext is the TLSPlaintext.type + TLSPlaintext.fragment.
 
 The additional authenticated data, which we denote as additional_data, is
 defined as follows:
 
-       additional_data = seq_num + TLSPlaintext.type +
-                         TLSPlaintext.version + TLSPlaintext.length;
+       additional_data = seq_num + TLSPlaintext.version +
+                         TLSPlaintext.length;
 
-where "+" denotes concatenation.
-
-The aead_output consists of the ciphertext output by the AEAD encryption
-operation. The length will generally be larger than TLSPlaintext.length, but
+The aead_output consists of the ciphertext output by the AEAD
+encryption operation. The length of the plaintext is one greater than
+TLSPlaintext.length due to the inclusion of TLSPlaintext.type.  The
+length of aead_output will generally be larger than the plaintext, but
 by an amount that varies with the AEAD cipher. Since the ciphers might
 incorporate padding, the amount of overhead could vary with different
 TLSPlaintext.length values. Each AEAD cipher MUST NOT produce an expansion of
@@ -1040,9 +1042,16 @@ separate integrity check. That is:
 
 If the decryption fails, a fatal bad_record_mac alert MUST be generated.
 
-As a special case, we define the NULL_NULL AEAD cipher which is simply
-the identity operation and thus provides no security. This cipher
-MUST ONLY be used with the initial TLS_NULL_WITH_NULL_NULL cipher suite.
+As a special case, we define the NULL_NULL cipher which does not use
+the TLSCiphertext structure at all, but sends the TLSPlaintext
+directly over the wire.  This cipher MUST ONLY be used with the
+initial TLS_NULL_WITH_NULL_NULL cipher suite.  Note that the position
+of the type member of the struct is in a different location in
+TLSPlaintext than it is in TLSCiphertext.  This special case provides
+backward compatibility with older versions of TLS.  The
+TLS_NULL_WITH_NULL_NULL state provides no security, and is only used
+during the initial part of the handshake (before the first
+ChangeCipherSpec message).
 
 ##  Key Calculation
 
