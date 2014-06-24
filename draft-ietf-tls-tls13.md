@@ -2978,7 +2978,7 @@ A cipher suite defines a cipher specification supported in TLS Version 1.2.
 
 TLS_NULL_WITH_NULL_NULL is specified and is the initial state of a TLS
 connection during the first handshake on that channel, but MUST NOT be
-negotiated, as it provides no more protection than an unsecured connection.
+negotiated.
 
        CipherSuite TLS_NULL_WITH_NULL_NULL             = { 0x00,0x00 };
 
@@ -3233,7 +3233,7 @@ Transport Layer Security (TLS)
     Cipher Suite                          Key        Record
                                           Exchange   Protection   PRF
 
-    TLS_NULL_WITH_NULL_NULL               NULL       NULL_NULL    N/A
+    TLS_NULL_WITH_NULL_NULL               N/A        NULL_NULL    N/A
     TLS_DHE_RSA_WITH_AES_128_GCM_SHA256   DHE_RSA    AES_128_GCM  SHA256
     TLS_DHE_RSA_WITH_AES_256_GCM_SHA384   DHE_RSA    AES_256_GCM  SHA384
     TLS_DH_RSA_WITH_AES_128_GCM_SHA256    DH_RSA     AES_128_GCM  SHA256
